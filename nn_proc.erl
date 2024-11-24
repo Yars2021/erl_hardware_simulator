@@ -3,7 +3,7 @@
          init/2]).
 
 
-% Create NN model
+% Create NN model, return IO_Controller and all ff components so they can be supplied with external clk
 create(PE_CORES_NUM) ->
     LocalMem = spawn_local_mem(PE_CORES_NUM, spawn_PE_cores(PE_CORES_NUM)),
     RAM = spawn(fun() -> ram:listen([]) end),
@@ -15,16 +15,23 @@ create(PE_CORES_NUM) ->
     IO_Controller ! {register_bus, BusMatrix},
     IO_Controller ! {register_control_unit, ControlUnit},
 
-    {IO_Controller, [ControlUnit | [BusMatrix | [IO_Controller | [Memory | [RAM | LocalMem]]]]]}.
+    {IO_Controller, [ControlUnit | [IO_Controller | [Memory | [RAM | LocalMem]]]]}.
 
 
 % Start NN model
 init(IO_Controller, [InputFile, WeightsFile]) ->
-    IO_Controller ! {input, InputFile},
-    sim:delay(10),
-    IO_Controller ! {weights, WeightsFile},
-    sim:delay(10),
-    IO_Controller ! {read_RAM}.
+    init(IO_Controller, [InputFile, WeightsFile], 0).
+
+init(IO_Controller, [InputFile, WeightsFile], Counter) ->
+    receive
+        {clk} ->
+            case Counter of
+                0 -> IO_Controller ! {input, InputFile}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                1 -> IO_Controller ! {weights, WeightsFile}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                2 -> IO_Controller ! {read_Memory}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                _ -> 0
+            end
+    end.
 
 
 spawn_PE_cores(0) -> [];

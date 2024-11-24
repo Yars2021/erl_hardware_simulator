@@ -2,6 +2,7 @@
 -export([listen/4]).
 
 
+% comb_logic
 listen(IO_Controller, Memory, RAM, LocalMem) ->
     receive
         % RAM/Memory -> Bus -> IO_Controller

@@ -11,11 +11,8 @@ start(Model, SimulationTimeout, ModelType, Args) ->
 run_model(Model, SimulationTimeout, ModelType, Args) ->
     {IO_Controller, Components} = Model,
 
-    Clock = spawn(fun() -> clk_gen(0, Components) end),
-
-    case ModelType of
-        nn_proc -> nn_proc:init(IO_Controller, Args)
-    end,
+    ModelStarter = spawn(fun() -> init_model(ModelType, IO_Controller, Args) end),
+    Clock = spawn(fun() -> clk_gen(0, ModelStarter, Components) end),
 
     receive
         % Terminate simulation
@@ -32,18 +29,24 @@ run_model(Model, SimulationTimeout, ModelType, Args) ->
         print_clock(Clock)
     end.
 
+init_model(ModelType, IO_Controller, Args) ->
+    case ModelType of
+        nn_proc -> nn_proc:init(IO_Controller, Args)
+    end.
+
 
 % API for models
 return(Data) -> {model, node()} ! {sim_finish, Data}.
 delay(MS) -> receive after MS -> 0 end.
 
 
-clk_gen(Counter, Destination) ->
+clk_gen(Counter, Starter, Model) ->
     receive
         {stop, PID} -> PID ! {ticks, Counter}
     after 5 ->
-        tick_all(Destination),
-        clk_gen(Counter + 1, Destination)
+        Starter ! {clk},
+        tick_all(Model),
+        clk_gen(Counter + 1, Starter, Model)
     end.
 
 
