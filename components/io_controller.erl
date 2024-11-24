@@ -1,22 +1,33 @@
 -module(io_controller).
--export([listen/1]).
+-export([listen/2]).
 
 
-delay(MS) -> receive after MS -> 0 end.
-
-
-listen(Bus) ->
+% ff_logic, driven by clk
+listen(Bus, ControlUnit) ->
     receive
-        {output, Data} -> delay(5), write_output(Data);
-        {input, Filename} -> Bus ! {write_input, read_term(Filename)};
-        {weights, Filename} -> Bus ! {write_weights, read_term(Filename)};
+        % For model configuration
+        {register_bus, BusPID} -> listen(BusPID, ControlUnit);
+        {register_control_unit, ControlUnitPID} -> listen(Bus, ControlUnitPID);
 
-        % For testing
-        {read_RAM} -> Bus ! {read_RAM, self()};
-        {read_Memory} -> Bus ! {read_Memory, self()}
+        % Output data on clk
+        {output, Data} -> receive {clk} -> model:return(Data) end;
+
+        % Input input_vector from file on clk
+        {input, Filename} -> receive {clk} -> Bus ! {write_input, read_term(Filename)} end;
+
+        % Input weight_matrices from file on clk
+        {weights, Filename} -> receive {clk} -> Bus ! {write_weights, read_term(Filename)} end;
+
+        % Read RAM value on clk
+        {read_RAM} -> receive {clk} -> Bus ! {read_RAM} end;
+
+        % Read Memory value on clk
+        {read_Memory} -> receive {clk} -> Bus ! {read_Memory} end;
+
+        _ -> listen(Bus, ControlUnit)
     end,
 
-    listen(Bus).
+    listen(Bus, ControlUnit).
 
 
 read_term(FileName) ->
@@ -25,13 +36,6 @@ read_term(FileName) ->
     {ok, Abstract} = erl_parse:parse_exprs(Tokens),
     {value, Value, _} = erl_eval:exprs(Abstract, erl_eval:new_bindings()),
     Value.
-
-
-write_output([]) -> io:format("None~n");
-write_output([{Address, Value}]) -> io:format("Address: ~p -> ~p~n", [Address, Value]);
-write_output([{Address, Value} | Tail]) ->
-    io:format("Address: ~p -> ~p~n", [Address, Value]),
-    write_output(Tail).
 
 
 read_lines(FileName) ->

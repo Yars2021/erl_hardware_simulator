@@ -2,6 +2,7 @@
 -export([listen/0]).
 
 
+% comb_logic
 listen() ->
     receive
         {Requester, vector_mul, Inputs, Weights} -> Requester ! {write, vector_mul, vector_mul(Inputs, Weights)};
@@ -17,5 +18,4 @@ sigmoid(X) -> 1 / (1 + math:exp(-X)).
 
 vector_mul(_, []) -> 0;
 vector_mul([], _) -> 0;
-vector_mul([HeadA | TailA], [HeadB | TailB]) ->
-	HeadA * HeadB + vector_mul(TailA, TailB).
+vector_mul([HeadA | TailA], [HeadB | TailB]) -> HeadA * HeadB + vector_mul(TailA, TailB).

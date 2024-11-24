@@ -1,47 +1,65 @@
 -module(model).
--export([config/1,
-         start/1,
-         calculate_input/3,
-         calculate_hidden/3]).
+-export([start/4,
+         return/1,
+         delay/1]).
 
 
+% Start any model
+start(Model, SimulationTimeout, ModelType, Args) ->
+    register(model, spawn(fun() -> run_model(Model, SimulationTimeout, ModelType, Args) end)).
+
+run_model(Model, SimulationTimeout, ModelType, Args) ->
+    {IO_Controller, Components} = Model,
+
+    Clock = spawn(fun() -> clk_gen(0, Components) end),
+
+    case ModelType of
+        nn_proc -> nn_proc:init(IO_Controller, Args)
+    end,
+
+    receive
+        % Terminate simulation
+        {sim_end} -> print_clock(Clock);
+
+        % Print output and finish simulation
+        {sim_finish, Output} ->
+            delay(1),
+            io:format("================================~n"),
+            write_memory(Output),
+            print_clock(Clock)
+
+    after SimulationTimeout ->
+        print_clock(Clock)
+    end.
+
+
+% API for models
+return(Data) -> {model, node()} ! {sim_finish, Data}.
 delay(MS) -> receive after MS -> 0 end.
 
 
-config(PE_CORES_NUM) ->
-    PE_Cores = spawn_PE_cores(PE_CORES_NUM),
-    LocalMem = spawn_local_mem(PE_CORES_NUM),
-    Memory = spawn(fun() -> memory:listen([]) end) ,
-    RAM = spawn(fun() -> ram:listen([]) end),
-    BusMatrix = spawn(fun() -> bus_matrix:listen(RAM, Memory, LocalMem) end),
-    ControlUnit = 0,
-
-    [ControlUnit, RAM, Memory, BusMatrix, LocalMem, PE_Cores].
+clk_gen(Counter, Destination) ->
+    receive
+        {stop, PID} -> PID ! {ticks, Counter}
+    after 5 ->
+        tick_all(Destination),
+        clk_gen(Counter + 1, Destination)
+    end.
 
 
-start([ControlUnit, RAM, Memory, BusMatrix, LocalMem, PE_Cores]) ->
-    register(nn_proc, spawn(fun() -> io_controller:listen(BusMatrix) end)).
+tick_all([]) -> 0;
+tick_all([Node | NodesTail]) -> Node ! {clk}, tick_all(NodesTail).
 
 
-spawn_PE_cores(0) -> [];
-spawn_PE_cores(N) -> [spawn(fun() -> pe_core:listen() end) | spawn_PE_cores(N - 1)].
+print_clock(Clock) ->
+    Clock ! {stop, self()},
+    receive
+        {ticks, Counter} -> io:format("================================~nSimulation ended in ~p ticks.~n", [Counter])
+    end.
 
 
-spawn_local_mem(0) -> [];
-spawn_local_mem(N) -> [spawn(fun() -> local_memory:listen([], [], [], [], []) end) | spawn_local_mem(N - 1)].
-
-
-% Вычисление для входного нейрона (просто функция активации)
-calculate_input(Bus, LocalMem, PE) ->
-    LocalMem ! {PE, read, vector_mul}, % LocalMem[vector_mul] -> PE -> LocalMem[activation]
-    delay(5),
-    LocalMem ! {Bus, get_result}. % LocalMem[activation] -> Bus
-
-
-% Вычисление для скрытого или выходного нейрона (скалярное произведение входов и весов и функция активации)
-calculate_hidden(Bus, LocalMem, PE) ->
-    LocalMem ! {PE, read, inputs_and_weights}, % LocalMem[inputs, weights] -> PE -> LocalMem[vector_mul]
-    delay(5),
-    LocalMem ! {PE, read, vector_mul}, % LocalMem[vector_mul] -> PE -> LocalMem[activation]
-    delay(5),
-    LocalMem ! {Bus, get_result}. % LocalMem[activation] -> Bus
+write_memory([]) -> io:format("None~n");
+write_memory([{Address, Value}]) -> io:format("Address ~p -> ~p~n", [Address, Value]);
+write_memory([{Address, Value} | Tail]) ->
+    io:format("Address ~p -> ~p~n", [Address, Value]),
+    write_memory(Tail).

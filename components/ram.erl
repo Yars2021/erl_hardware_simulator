@@ -2,13 +2,29 @@
 -export([listen/1]).
 
 
+% ff_logic, clk driven
 listen(Memory) ->
     receive
-        {write_vector, Vector} -> listen(write_to_ram(Vector));
-        {send_to_calc, Bus} -> Bus ! {calc_for_inputs, flatten(Memory)};
-        {send_to_output, IO, Bus} -> Bus ! {output_results, IO, Memory};
-        {value, Index, Value} -> listen(lists:sort([{Index, Value} | Memory]));
-        {erase} -> listen([]);
+        {clk} ->
+            receive
+                % Erase RAM
+                {erase} -> listen([]);
+
+                % Write a vector
+                {write_vector, Vector} -> listen(write_to_ram(Vector));
+
+                % Write one item
+                {value, Index, Value} -> listen(lists:sort([{Index, Value} | Memory]));
+
+                % Send RAM value to LocalMemory through Bus
+                {send_to_calc, Bus} -> Bus ! {calc_for_inputs, flatten(Memory)};
+
+                % Send RAM value to IO through Bus
+                {send_to_output, Bus} -> Bus ! {output_results, Memory};
+
+                _ -> listen(Memory)
+            end;
+
         _ -> listen(Memory)
     end,
 

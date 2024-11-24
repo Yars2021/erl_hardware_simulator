@@ -1,19 +1,27 @@
 -module(bus_matrix).
--export([listen/3]).
+-export([listen/4]).
 
 
-listen(RAM, Memory, LocalMem) ->
+listen(IO_Controller, Memory, RAM, LocalMem) ->
     receive
+        % RAM/Memory -> Bus -> IO_Controller
+        {output_results, Results} -> IO_Controller ! {output, Results};
+
+        % Read RAM
+        {read_RAM} -> RAM ! {send_to_output, self()};
+
+        % Read Memory
+        {read_Memory} -> Memory ! {send_to_output, self()};
+
+
+
+
         % RAM -> Bus -> LocalMem
         {calc_for_inputs, Inputs} ->
             lists:map(LocalMem, fun(LocalMemPID) -> LocalMemPID ! {write, inputs, Inputs} end);
 
         % Memory -> Bus -> LocalMem
-        {calc_for_weights, Weights} ->
-            lists:map(LocalMem, fun(LocalMemPID) -> LocalMemPID ! {write, weights, Weights} end);
-
-        % RAM -> Bus -> IO_Controller
-        {output_results, IO, Results} -> IO ! {output, Results};
+        {calc_for_weights, Weights} -> distribute_matrix(LocalMem, Weights);
 
         % IO_Controller -> Bus -> RAM
         {write_input, InputVector} -> RAM ! {write_vector, InputVector};
@@ -21,21 +29,24 @@ listen(RAM, Memory, LocalMem) ->
         % IO_Controller -> Bus -> Memory
         {write_weights, WeightsVector} -> Memory ! {write_weights, WeightsVector};
 
-        % Memory -> Bus -> LocalMem
-        {weight_matrix, WeightMatrix} -> distribute_matrix(LocalMem, WeightMatrix);
-
         % LocalMem -> Bus -> RAM
         {result, Index, Value} -> RAM ! {value, Index, Value};
 
-
-        % For testing
-        {read_RAM, IO} -> RAM ! {send_to_output, IO, self()};
-        {read_Memory, IO} -> Memory ! {send_to_output, IO, self()};
-
-        _ -> listen(RAM, Memory, LocalMem)
+        _ -> listen(IO_Controller, Memory, RAM, LocalMem)
     end,
 
-    listen(RAM, Memory, LocalMem).
+    listen(IO_Controller, Memory, RAM, LocalMem).
 
 
-distribute_matrix(LocalMemPIDs, WeightMatrix) -> 0.
+distribute_matrix(LocalMemPIDs, WeightMatrix) ->
+    distribute_matrix(LocalMemPIDs, LocalMemPIDs, WeightMatrix, 1).
+
+distribute_matrix(_, _, [], _) -> 0;
+
+distribute_matrix(InitialPIDs, [], Matrix, Index) ->
+    distribute_matrix(InitialPIDs, InitialPIDs, Matrix, Index);
+
+distribute_matrix(InitialPIDs, [PID | PIDTail], [Vector | MatrixTail], Index) ->
+    PID ! {write, index, Index},
+    PID ! {write, weights, Vector},
+    distribute_matrix(InitialPIDs, PIDTail, MatrixTail, Index + 1).

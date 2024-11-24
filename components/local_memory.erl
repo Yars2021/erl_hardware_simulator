@@ -1,30 +1,54 @@
 -module(local_memory).
--export([listen/5]).
+-export([listen/6]).
 
 
-listen(IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmMemory) ->
+% ff_logic, clk driven
+listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory) ->
     receive
-        {write, inputs, List} -> listen(IndexMemory, InputMemory ++ [List], WeightMemory, VectorMulMemory, SigmMemory);
-        {write, weights, List} -> listen(IndexMemory, InputMemory, WeightMemory ++ [List], VectorMulMemory, SigmMemory);
-        {write, vector_mul, Value} -> listen(IndexMemory, InputMemory, WeightMemory, VectorMulMemory ++ [Value], SigmMemory);
-        {write, activation, Value} -> listen(IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmMemory ++ [Value]);
+        {clk} ->
+            receive
+                % Erase LocalMemory cell
+                {erase} -> listen(PE, [], [], [], [], []);
 
-        {PE, read, inputs_and_weights} ->
-            [FirstInput | InputTail] = InputMemory,
-            [FirstWeight | WeightTail] = WeightMemory,
-            PE ! {self(), vector_mul, FirstInput, FirstWeight},
-            listen(IndexMemory, InputTail, WeightTail, VectorMulMemory, SigmMemory);
+                % Append a new index value
+                {write, index, Index} -> listen(PE, IndexMemory ++ [Index], InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory);
 
-        {PE, read, vector_mul} ->
-            [FirstVectorMul | VectorMulTail] = VectorMulMemory,
-            PE ! {self(), activation_func, FirstVectorMul},
-            listen(IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmMemory);
+                % Append new inputs vector
+                {write, inputs, List} -> listen(PE, IndexMemory, InputMemory ++ [List], WeightMemory, VectorMulMemory, SigmoidMemory);
 
-        {Bus, get_result} ->
-            [FirstSigm | SigmTail] = SigmMemory,
-            [FirstIndex | IndexTail] = IndexMemory,
-            Bus ! {result, FirstIndex, FirstSigm},
-            listen(IndexTail, InputMemory, WeightMemory, VectorMulMemory, SigmTail);
+                % Append new weights vector
+                {write, weights, List} -> listen(PE, IndexMemory, InputMemory, WeightMemory ++ [List], VectorMulMemory, SigmoidMemory);
 
-        _ -> listen(IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmMemory)
-    end.
+                % Append new vector_mul value
+                {write, vector_mul, Value} -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory ++ [Value], SigmoidMemory);
+
+                % Append new activation_func value
+                {write, activation, Value} -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory ++ [Value]);
+
+                % Send inputs and weights vectors to mul PE. Pop weights
+                {calc, inputs_and_weights} ->
+                    [InputVector] = InputMemory,
+                    [FirstWeight | WeightTail] = WeightMemory,
+                    PE ! {self(), vector_mul, InputVector, FirstWeight},
+                    listen(PE, IndexMemory, InputMemory, WeightTail, VectorMulMemory, SigmoidMemory);
+
+                % Send vector_mul to PE. Pop vector_mul
+                {calc, vector_mul} ->
+                    [FirstVectorMul | VectorMulTail] = VectorMulMemory,
+                    PE ! {self(), activation_func, FirstVectorMul},
+                    listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmoidMemory);
+
+                % Send results to Bus. Pop sigmoid and index
+                {get_result, Bus} ->
+                    [FirstIndex | IndexTail] = IndexMemory,
+                    [FirstSigmoid | SigmoidTail] = SigmoidMemory,
+                    Bus ! {result, FirstIndex, FirstSigmoid},
+                    listen(PE, IndexTail, InputMemory, WeightMemory, VectorMulMemory, SigmoidTail);
+
+                _ -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory)
+            end;
+
+        _ -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory)
+    end,
+
+    listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory).
