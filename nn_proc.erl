@@ -19,16 +19,15 @@ create(PE_CORES_NUM) ->
 
 
 % Start NN model
-init(IO_Controller, [InputFile, WeightsFile]) ->
-    init(IO_Controller, [InputFile, WeightsFile], 0).
+init(IO_Controller, Args) -> init_tick(IO_Controller, Args, 0).
 
-init(IO_Controller, [InputFile, WeightsFile], Counter) ->
+init_tick(IO_Controller, [InputFile, WeightsFile], Counter) ->
     receive
         {clk} ->
             case Counter of
-                0 -> IO_Controller ! {input, InputFile}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
-                1 -> IO_Controller ! {weights, WeightsFile}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
-                2 -> IO_Controller ! {read_Memory}, init(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                0 -> IO_Controller ! {input, InputFile}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                1 -> IO_Controller ! {weights, WeightsFile}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
+                2 -> IO_Controller ! {read_RAM}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
                 _ -> 0
             end
     end.

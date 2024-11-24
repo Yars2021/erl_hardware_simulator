@@ -2,10 +2,10 @@
 -export([listen/2]).
 
 
-% ff_logic, driven by clk
+% ff_logic, clk driven
 listen(Bus, ControlUnit) ->
     receive
-        % For model configuration
+        % For model configuration, these commands don't need clk
         {register_bus, BusPID} -> listen(BusPID, ControlUnit);
         {register_control_unit, ControlUnitPID} -> listen(Bus, ControlUnitPID);
 

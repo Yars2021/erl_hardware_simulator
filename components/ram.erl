@@ -5,25 +5,20 @@
 % ff_logic, clk driven
 listen(Memory) ->
     receive
-        {clk} ->
-            receive
-                % Erase RAM
-                {erase} -> listen([]);
+        % Erase RAM
+        {erase} -> receive {clk} -> listen([]) end;
 
-                % Write a vector
-                {write_vector, Vector} -> listen(write_to_ram(Vector));
+        % Write a vector
+        {write_vector, Vector} -> receive {clk} -> listen(write_to_ram(Vector)) end;
 
-                % Write one item
-                {value, Index, Value} -> listen(lists:sort([{Index, Value} | Memory]));
+        % Write one item
+        {value, Index, Value} -> receive {clk} -> listen(lists:sort([{Index, Value} | Memory])) end;
 
-                % Send RAM value to LocalMemory through Bus
-                {send_to_calc, Bus} -> Bus ! {calc_for_inputs, flatten(Memory)};
+        % Send RAM value to LocalMemory through Bus
+        {send_to_calc, Bus} -> receive {clk} -> Bus ! {calc_for_inputs, flatten(Memory)} end;
 
-                % Send RAM value to IO through Bus
-                {send_to_output, Bus} -> Bus ! {output_results, Memory};
-
-                _ -> listen(Memory)
-            end;
+        % Send RAM value to IO through Bus
+        {send_to_output, Bus} -> receive {clk} -> Bus ! {output_results, Memory} end;
 
         _ -> listen(Memory)
     end,
