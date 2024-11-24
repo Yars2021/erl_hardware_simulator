@@ -1,4 +1,4 @@
--module(model).
+-module(sim).
 -export([start/4,
          return/1,
          delay/1]).

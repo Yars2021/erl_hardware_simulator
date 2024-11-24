@@ -10,7 +10,7 @@ listen(Bus, ControlUnit) ->
         {register_control_unit, ControlUnitPID} -> listen(Bus, ControlUnitPID);
 
         % Output data on clk
-        {output, Data} -> receive {clk} -> model:return(Data) end;
+        {output, Data} -> receive {clk} -> sim:return(Data) end;
 
         % Input input_vector from file on clk
         {input, Filename} -> receive {clk} -> Bus ! {write_input, read_term(Filename)} end;

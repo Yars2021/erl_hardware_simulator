@@ -21,9 +21,9 @@ create(PE_CORES_NUM) ->
 % Start NN model
 init(IO_Controller, [InputFile, WeightsFile]) ->
     IO_Controller ! {input, InputFile},
-    model:delay(10),
+    sim:delay(10),
     IO_Controller ! {weights, WeightsFile},
-    model:delay(10),
+    sim:delay(10),
     IO_Controller ! {read_RAM}.
 
 
