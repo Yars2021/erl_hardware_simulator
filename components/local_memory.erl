@@ -23,6 +23,9 @@ listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemor
         % Append new activation_func value
         {write, activation, Value} -> receive {clk} -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory ++ [Value]) end;
 
+        % Read all memory banks and send the to IO
+        {read, Bus} -> Bus ! {output_results, [{1, IndexMemory}, {2, InputMemory}, {3, WeightMemory}, {4, VectorMulMemory}, {5, SigmoidMemory}]};
+
         % Send inputs and weights vectors to mul PE. Pop weights
         {calc, inputs_and_weights} ->
             receive

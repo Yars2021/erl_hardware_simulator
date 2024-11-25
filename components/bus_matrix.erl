@@ -21,7 +21,7 @@ listen(IO_Controller, Memory, RAM, LocalMem) ->
         {write_weights, WeightsVector} -> Memory ! {write_weights, WeightsVector};
 
         % RAM -> Bus -> LocalMem
-        {calc_for_inputs, Inputs} -> lists:map(LocalMem, fun(LocalMemPID) -> LocalMemPID ! {write, inputs, Inputs} end);
+        {calc_for_inputs, Inputs} -> lists:map(fun(LocalMemPID) -> LocalMemPID ! {write, inputs, Inputs} end, LocalMem);
 
         % split(RAM) -> Bus -> LocalMem
         {calc_for_inputs_distribute, Inputs} -> distribute_input(LocalMem, Inputs);
