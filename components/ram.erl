@@ -14,8 +14,14 @@ listen(Memory) ->
         % Write one item
         {value, Index, Value} -> receive {clk} -> listen(lists:sort([{Index, Value} | Memory])) end;
 
+        % Get current RAM size
+        {get_layer_len, ControlUnit} -> receive {clk} -> ControlUnit ! {layer_len, length(Memory)} end;
+
         % Send RAM value to LocalMemory through Bus
         {send_to_calc, Bus} -> receive {clk} -> Bus ! {calc_for_inputs, flatten(Memory)} end;
+
+        % Distribute RAM values evenly across LocalMemory
+        {send_to_calc_distribute, Bus} -> receive {clk} -> Bus ! {calc_for_inputs_distribute, flatten(Memory)} end;
 
         % Send RAM value to IO through Bus
         {send_to_output, Bus} -> receive {clk} -> Bus ! {output_results, Memory} end;

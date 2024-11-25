@@ -24,6 +24,9 @@ listen(Bus, ControlUnit) ->
         % Read Memory value on clk
         {read_Memory} -> receive {clk} -> Bus ! {read_Memory} end;
 
+        % Start calculations
+        {start_calc} -> receive {clk} -> ControlUnit ! {start_calc} end;
+
         _ -> listen(Bus, ControlUnit)
     end,
 

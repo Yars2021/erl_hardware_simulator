@@ -10,7 +10,7 @@ create(PE_CORES_NUM) ->
     Memory = spawn(fun() -> memory:listen([]) end),
     IO_Controller = spawn(fun() -> io_controller:listen(0, 0) end),
     BusMatrix = spawn(fun() -> bus_matrix:listen(IO_Controller, Memory, RAM, LocalMem) end),
-    ControlUnit = spawn(fun() -> control_unit:listen() end),
+    ControlUnit = spawn(fun() -> control_unit:execute(LocalMem, BusMatrix, RAM, Memory) end),
 
     IO_Controller ! {register_bus, BusMatrix},
     IO_Controller ! {register_control_unit, ControlUnit},
@@ -19,18 +19,10 @@ create(PE_CORES_NUM) ->
 
 
 % Start NN model
-init(IO_Controller, Args) -> init_tick(IO_Controller, Args, 0).
-
-init_tick(IO_Controller, [InputFile, WeightsFile], Counter) ->
-    receive
-        {clk} ->
-            case Counter of
-                0 -> IO_Controller ! {input, InputFile}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
-                1 -> IO_Controller ! {weights, WeightsFile}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
-                2 -> IO_Controller ! {read_RAM}, init_tick(IO_Controller, [InputFile, WeightsFile], Counter + 1);
-                _ -> 0
-            end
-    end.
+init(IO_Controller, [InputFile, WeightsFile]) ->
+    receive {clk} -> IO_Controller ! {input, InputFile} end,
+    receive {clk} -> IO_Controller ! {weights, WeightsFile} end,
+    receive {clk} -> IO_Controller ! {start_calc} end.
 
 
 spawn_PE_cores(0) -> [];

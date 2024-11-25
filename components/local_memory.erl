@@ -25,28 +25,43 @@ listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemor
 
         % Send inputs and weights vectors to mul PE. Pop weights
         {calc, inputs_and_weights} ->
-            receive {clk} ->
-                [InputVector] = InputMemory,
-                [FirstWeight | WeightTail] = WeightMemory,
-                PE ! {self(), vector_mul, InputVector, FirstWeight},
-                listen(PE, IndexMemory, InputMemory, WeightTail, VectorMulMemory, SigmoidMemory)
+            receive
+                {clk} ->
+                    case WeightMemory of
+                        [] -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory);
+                        _ ->
+                            [InputVector] = InputMemory,
+                            [FirstWeight | WeightTail] = WeightMemory,
+                            PE ! {self(), vector_mul, InputVector, FirstWeight},
+                            listen(PE, IndexMemory, InputMemory, WeightTail, VectorMulMemory, SigmoidMemory)
+                    end
             end;
 
         % Send vector_mul to PE. Pop vector_mul
         {calc, vector_mul} ->
-            receive {clk} ->
-                [FirstVectorMul | VectorMulTail] = VectorMulMemory,
-                PE ! {self(), activation_func, FirstVectorMul},
-                listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmoidMemory)
+            receive
+                {clk} ->
+                    case VectorMulMemory of
+                        [] -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory);
+                        _ ->
+                            [FirstVectorMul | VectorMulTail] = VectorMulMemory,
+                            PE ! {self(), activation_func, FirstVectorMul},
+                            listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmoidMemory)
+                    end
             end;
 
         % Send results to Bus. Pop sigmoid and index
         {get_result, Bus} ->
-            receive {clk} ->
-                [FirstIndex | IndexTail] = IndexMemory,
-                [FirstSigmoid | SigmoidTail] = SigmoidMemory,
-                Bus ! {result, FirstIndex, FirstSigmoid},
-                listen(PE, IndexTail, InputMemory, WeightMemory, VectorMulMemory, SigmoidTail)
+            receive
+                {clk} ->
+                    case {IndexMemory, SigmoidMemory} of
+                        {[], []} -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory);
+                        _ ->
+                            [FirstIndex | IndexTail] = IndexMemory,
+                            [FirstSigmoid | SigmoidTail] = SigmoidMemory,
+                            Bus ! {result, FirstIndex, FirstSigmoid},
+                            listen(PE, IndexTail, InputMemory, WeightMemory, VectorMulMemory, SigmoidTail)
+                    end
             end;
 
         _ -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemory)
