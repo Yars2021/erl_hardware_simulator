@@ -36,7 +36,10 @@ listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemor
                             [InputVector] = InputMemory,
                             [FirstWeight | WeightTail] = WeightMemory,
                             PE ! {self(), vector_mul, InputVector, FirstWeight},
-                            listen(PE, IndexMemory, InputMemory, WeightTail, VectorMulMemory, SigmoidMemory)
+
+                            receive
+                                {write, vector_mul, Value} -> listen(PE, IndexMemory, InputMemory, WeightTail, VectorMulMemory ++ [Value], SigmoidMemory)
+                            end
                     end
             end;
 
@@ -49,7 +52,10 @@ listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulMemory, SigmoidMemor
                         _ ->
                             [FirstVectorMul | VectorMulTail] = VectorMulMemory,
                             PE ! {self(), activation_func, FirstVectorMul},
-                            listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmoidMemory)
+
+                            receive
+                                {write, activation, Value} -> listen(PE, IndexMemory, InputMemory, WeightMemory, VectorMulTail, SigmoidMemory ++ [Value])
+                            end
                     end
             end;
 

@@ -43,8 +43,8 @@ distribute_input(LocalMemPIDs, InputVector) ->
 
 distribute_input(_, _, [], _) -> 0;
 
-distribute_input(InitialPIDs, [], InputVector, _) ->
-    distribute_input(InitialPIDs, InitialPIDs, InputVector, 1);
+distribute_input(InitialPIDs, [], InputVector, Index) ->
+    distribute_input(InitialPIDs, InitialPIDs, InputVector, Index);
 
 distribute_input(InitialPIDs, [PID | PIDTail], [Input | InputTail], Index) ->
     PID ! {write, index, Index},
@@ -57,8 +57,8 @@ distribute_weights(LocalMemPIDs, WeightMatrix) ->
 
 distribute_weights(_, _, [], _) -> 0;
 
-distribute_weights(InitialPIDs, [], Matrix, _) ->
-    distribute_weights(InitialPIDs, InitialPIDs, Matrix, 1);
+distribute_weights(InitialPIDs, [], Matrix, Index) ->
+    distribute_weights(InitialPIDs, InitialPIDs, Matrix, Index);
 
 distribute_weights(InitialPIDs, [PID | PIDTail], [Vector | MatrixTail], Index) ->
     PID ! {write, index, Index},

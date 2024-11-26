@@ -36,7 +36,7 @@ layer_cycle(LocalMem, Bus, RAM, Memory, Layers) ->
 looped_broadcast(0, _, _) -> 0;
 looped_broadcast(Times, PIDs, Message) ->
     receive {clk} -> broadcast(PIDs, Message) end,
-    looped_broadcast(Times - 1, PIDs, Message).
+    receive {clk} -> looped_broadcast(Times - 1, PIDs, Message) end.
 
 
 broadcast([], _) -> 0;
@@ -48,7 +48,7 @@ broadcast([PID | PID_Tail], Message) ->
 sequential_looped_broadcast(0, _, _) -> 0;
 sequential_looped_broadcast(Times, PIDs, Message) ->
     receive {clk} -> sequential_broadcast(PIDs, Message) end,
-    sequential_looped_broadcast(Times - 1, PIDs, Message).
+    receive {clk} -> sequential_looped_broadcast(Times - 1, PIDs, Message) end.
 
 
 sequential_broadcast([], _) -> 0;
